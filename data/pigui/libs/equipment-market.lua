@@ -46,10 +46,18 @@ local defaultFuncs = {
     -- do something when a "buy" button is clicked
     -- return true if the buy can proceed
     onClickBuy = function (self, e)
-        return true -- allow buy
+        return true -- allow buy	
     end,
 
     buy = function(self, e)
+
+		-- there is definately a better way to localize and format this string
+		-- given the space and ordering may be wrong for some languages
+		-- this seems to have some ordering/concurrency issues
+--		self.ok_cancel.msg = l.BUY .. " " .. e:GetName()
+--		self.ok_cancel:open()
+--		if not self.ok_cancel.ok then return end
+
         if not self.funcs.onClickBuy(self, e) then return end
 
         if self.funcs.getStock(self, e) <= 0 then
@@ -189,6 +197,20 @@ function MarketWidget.New(id, title, config)
         ui.sameLine()
         if ui.button("OK", Vector2(100, 0)) then
             self.popup:close()
+        end
+    end)
+
+	self.ok_cancel = config.popup or ModalWindow.New('popupMsg' .. id, function()
+        ui.text(self.ok_cancel.msg)
+        ui.dummy(Vector2((ui.getContentRegion().x - 100) / 2, 0))
+        ui.sameLine()
+        if ui.button(l.OK, Vector2(100, 0)) then
+			self.ok_cancel.ok = true
+            self.ok_cancel:close()
+        end
+        if ui.button(l.CANCEL, Vector2(100, 0)) then
+			self.ok_cancel.ok = false
+            self.ok_cancel:close()
         end
     end)
 
