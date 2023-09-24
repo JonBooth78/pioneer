@@ -245,7 +245,7 @@ function SpaceStation:GetCommodityMarket(itemType)
 
 	local comm = market[itemType.name]
 	if not comm then
-		logVerbose("Creating commodity market for {}: {}" % { self:GetLabel(), itemType.name })
+		logVerbose("Creating commodity market for {}: {}\n" % { self:GetLabel(), itemType.name })
 		comm = Economy.CreateStationCommodityMarket(sBody, itemType.name)
 		Economy.UpdateCommodityPriceMod(sBody, itemType.name, comm)
 

@@ -14,6 +14,11 @@
 #include "perlin.h"
 #include "ship/Propulsion.h"
 
+// temporary, so pirates only attack the player, till we've updated it.
+#include "Player.h"
+#include "core/Log.h"
+
+
 static const double VICINITY_MIN = 15000.0;
 static const double VICINITY_MUL = 4.0;
 
@@ -36,6 +41,7 @@ AICommand *AICommand::LoadFromJson(const Json &jsonObj)
 		case CMD_KAMIKAZE: return new AICmdKamikaze(aiCommandObj);
 		case CMD_HOLDPOSITION: return new AICmdHoldPosition(aiCommandObj);
 		case CMD_FORMATION: return new AICmdFormation(aiCommandObj);
+		case CMD_PIRACY: return new AICmdPirate(aiCommandObj);
 		}
 	} catch (Json::type_error &) {
 		throw SavedGameCorruptException();
@@ -388,7 +394,7 @@ bool AICmdKill::TimeStepUpdate()
 	double dist = targpos.LengthSqr();
 
 	//Autopilot leads to a point VICINITY_MIN in front of target
-	//If terget (Player) is manouvering this point might never be reached..
+	//If target (Player) is manouvering this point might never be reached..
 	if(m_child) {
 		if(dist < (VICINITY_MIN + 1000.0) * (VICINITY_MIN + 1000.0)) //no sqrt on dist yet
 			m_child.reset();
@@ -1774,4 +1780,134 @@ bool AICmdFormation::TimeStepUpdate()
 
 	m_prop->AIFaceDirection(-torient.VectorZ());
 	return false; // never self-terminates
+}
+
+
+void AICmdPirate::OnDeleted(const Body* body)
+{
+	AICommand::OnDeleted(body);
+	if (static_cast<Body*>(m_ambush_target) == body) m_ambush_target = nullptr;
+}
+
+void AICmdPirate::GetStatusText(char* str)
+{
+	if (m_child)
+	{
+		m_child->GetStatusText(str);
+		strcat_s(str, 255, " (piracy)");
+	}
+	else
+	{
+		snprintf(str, 255, "Piracy: ambush target %s, state %i", m_ambush_target->GetLabel().c_str(), m_state);
+	}
+}
+
+void AICmdPirate::PostLoadFixup(Space* space)
+{
+	AICommand::PostLoadFixup(space);
+	m_ambush_target = static_cast<DynamicBody*>(space->GetBodyByIndex(m_targetIndex));
+}
+
+AICmdPirate::AICmdPirate(DynamicBody* dBody, Body* ambush_target) :
+	AICommand(dBody, CMD_DOCK),
+	m_ambush_target(ambush_target),
+	m_state(ePiracyWaitInAmbush)
+{
+	Ship* ship = nullptr;
+	if (!dBody->IsType(ObjectType::SHIP)) return;
+	ship = static_cast<Ship*>(dBody);
+	assert(ship != nullptr);
+
+	m_ambush_pos = dBody->GetPositionRelTo(ambush_target);
+}
+
+AICmdPirate::AICmdPirate(const Json& jsonObj) :
+	AICommand(jsonObj, CMD_DOCK)
+{
+	try {
+		m_targetIndex = jsonObj["index_for_target"];
+		m_ambush_pos = jsonObj["ambush_pos"];
+		m_state = EPiracyStates(jsonObj["state"]);
+	}
+	catch (Json::type_error&) {
+		throw SavedGameCorruptException();
+	}
+}
+
+void AICmdPirate::SaveToJson(Json& jsonObj)
+{
+	Space* space = Pi::game->GetSpace();
+	Json aiCommandObj({}); // Create JSON object to contain ai command data.
+	AICommand::SaveToJson(aiCommandObj);
+	aiCommandObj["index_for_target"] = space->GetIndexForBody(m_ambush_target);
+	aiCommandObj["ambush_pos"] = m_ambush_pos;
+	aiCommandObj["state"] = m_state;
+	jsonObj["ai_command"] = aiCommandObj; // Add ai command object to supplied object.
+}
+
+// m_state values:
+// 0: get data for docking start pos
+// 1: Fly to docking start pos
+// 2: get data for docking end pos
+// 3: Fly to docking end pos
+
+bool AICmdPirate::TimeStepUpdate()
+{
+	Ship* ship = nullptr;
+	Log::GetLog()->LogLevel(Log::Severity::Verbose, "Pirate updating AI\n");
+
+	if (!ePiracyAttack == m_state)
+	{
+		const double RANGE_TO_INITIATE_ATTACK = 1000.0 * 1000.0; // 1000 km
+		// TODO: check ships in range and target one
+		// For now, just check the player...
+
+		vector3d current_pos = m_dBody->GetPositionRelTo(Pi::player);
+		if (current_pos.LengthSqr() < RANGE_TO_INITIATE_ATTACK * RANGE_TO_INITIATE_ATTACK)
+		{
+			Log::GetLog()->LogLevel(Log::Severity::Verbose, "Pirate initiating attack\n" );
+			m_child.reset(new AICmdKill(m_dBody,Pi::player));
+			ProcessChild();
+			return false;
+		}
+
+	}
+
+	// now do our child thing
+	if (!ProcessChild())
+	{
+		Log::GetLog()->LogLevel(Log::Severity::Verbose, "Pirate child handled AI\n");
+		return false;
+	}
+
+	m_state = ePiracyWaitInAmbush;
+
+	// if we're doing something already, keep it up:
+	if (!m_ambush_target)
+	{
+		Log::GetLog()->LogLevel(Log::Severity::Warning, "Abandoning piracy as target is gone\n");
+		return true;
+	}
+
+	if (!m_dBody->IsType(ObjectType::SHIP)) return false;
+	ship = static_cast<Ship*>(m_dBody);
+	assert(ship != nullptr);
+
+	// OK so how far away are we from our target position?
+	vector3d current_pos = m_dBody->GetPositionRelTo(m_ambush_target);
+	vector3d target_offset = m_ambush_pos - current_pos;
+
+	const static double FLY_TO_OFFSET = 2000; // 2km
+	const double distance = target_offset.Length();
+	if (m_state != ePiracyFlyToAmbushPos && distance > FLY_TO_OFFSET)
+	{
+		Log::GetLog()->LogLevel(Log::Severity::Verbose, "Pirate flying to ambush pos\n");
+		m_state = ePiracyFlyToAmbushPos;
+		m_child.reset(new AICmdFlyTo(m_dBody, m_ambush_target->GetFrame(), m_ambush_pos, 0, false));
+//		ProcessChild();
+		return false;
+	}
+
+	Log::GetLog()->LogLevel(Log::Severity::Verbose, "Pirate AI waiting\n");
+	return false;
 }

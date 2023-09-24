@@ -122,3 +122,9 @@ void Ship::AIHoldPosition()
 	AIClearInstructions();
 	m_curAICmd = new AICmdHoldPosition(this);
 }
+
+void Ship::AIPiracy(Body* ambush_target)
+{
+	AIClearInstructions();
+	m_curAICmd = new AICmdPirate(this, ambush_target);
+}

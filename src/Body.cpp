@@ -307,7 +307,7 @@ void Body::UpdateFrame()
 		const vector3d pos = GetPositionRelTo(kid);
 		if (pos.Length() >= kid_frame->GetRadius()) continue;
 		SwitchToFrame(kid);
-		Log::Verbose("{} enters frame{}\n", GetLabel(), frame->GetLabel());
+		Log::Verbose("{} enters frame {}\n", GetLabel(), frame->GetLabel());
 		break;
 	}
 }

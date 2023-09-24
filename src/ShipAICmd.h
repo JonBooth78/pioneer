@@ -27,7 +27,8 @@ public:
 		CMD_KILL,
 		CMD_KAMIKAZE,
 		CMD_HOLDPOSITION,
-		CMD_FORMATION
+		CMD_FORMATION,
+		CMD_PIRACY
 	};
 
 	AICommand(DynamicBody *dBody, CmdName name) :
@@ -73,10 +74,42 @@ protected:
 	int m_dBodyIndex; // deserialisation
 };
 
+// TODO: can this piracy actually all be performed quite nicely using, say onFrameChanged and then
+// processing targets to consider them 'in the kill zone', when they change body frame of reference?
+// Then it can all live in Lua!
+// other events to look at include onAICompleted
+class AICmdPirate : public AICommand {
+public:
+	virtual bool TimeStepUpdate();
+	AICmdPirate(DynamicBody *dBody, Body *ambush_target );
+
+	virtual void GetStatusText(char *str);
+	virtual void SaveToJson(Json &jsonObj);
+	AICmdPirate(const Json &jsonObj);
+	virtual void PostLoadFixup(Space *space);
+
+	virtual void OnDeleted(const Body *body);
+
+private:
+	enum EPiracyStates {
+		ePiracyWaitInAmbush = 0, // 2: Wait for a target ship to ambush
+		ePiracyFlyToAmbushPos = 1,   // 1: Fly to ambush position
+		ePiracyAttack = 2,   // 3: Attack
+		// TODO: states for scooping spilled cargo and/or finishing piracy
+		eInvalidPiracyStage = 3
+	};
+
+	Body* m_ambush_target;
+	vector3d m_ambush_pos; // offset in target's frame
+	EPiracyStates m_state; // see TimeStepUpdate()
+	int m_targetIndex;		// used during deserialisation
+
+};
+
 class AICmdDock : public AICommand {
 public:
 	virtual bool TimeStepUpdate();
-	AICmdDock(DynamicBody *dBody, SpaceStation *target);
+	AICmdDock(DynamicBody *dBody, SpaceStation *target );
 
 	virtual void GetStatusText(char *str);
 	virtual void SaveToJson(Json &jsonObj);

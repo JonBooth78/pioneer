@@ -1342,6 +1342,52 @@ static int l_ship_get_thruster_state(lua_State *l)
  * prevent this.
  */
 
+ /*
+  * Method: AIPirate
+  *
+  * Engage in piratical behavior
+  *
+  * > ship:AIPirate(ambush_target)
+  *
+  * Note the pirate AI currently will fly the ship and hang out at the same
+  * position to it's ambush target as it starts until a viable target
+  * for it to kill (currently only the player) comes into range
+  * at which it will engage in the AIKill behavior until that target is
+  * dead and then return to hanging out waiting...
+  * 
+  * It is the responsibility of the script to take those additional
+  * actions if desired.
+  *
+  * Parameters:
+  *
+  *   target - the <Body> relative to the ship to start at
+  *
+  * Returns:
+  *   true if the command could be enacted, false otherwise
+  *
+  * Availability:
+  *
+  *  alpha 10
+  *
+  * Status:
+  *
+  *  experimental
+  */
+static int l_ship_ai_pirate(lua_State* l)
+{
+	Ship* s = LuaObject<Ship>::CheckFromLua(1);
+	if (s->GetFlightState() == Ship::HYPERSPACE)
+		return luaL_error(l, "Ship:AIPirate() cannot be called on a ship in hyperspace");
+
+	Body* ambush_target = LuaObject<Body>::GetFromLua(2);
+
+	s->AIPiracy(ambush_target);
+
+	lua_pushboolean(l, true);
+	return 1;
+}
+
+
 /*
  * Method: AIKill
  *
@@ -1687,6 +1733,7 @@ void LuaObject<Ship>::RegisterClass()
 		{ "Explode", l_ship_explode },
 
 		{ "AIKill", l_ship_ai_kill },
+		{ "AIPirate", l_ship_ai_pirate },
 		{ "AIKamikaze", l_ship_ai_kamikaze },
 		{ "AIFlyTo", l_ship_ai_fly_to },
 		{ "AIDockWith", l_ship_ai_dock_with },

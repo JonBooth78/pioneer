@@ -189,6 +189,7 @@ public:
 
 	void AIKamikaze(Body *target); // Note: defined in Ship-AI.cpp
 	void AIKill(Ship *target);	   // Note: defined in Ship-AI.cpp
+	void AIPiracy(Body* ambush_target); // Note: defined in Ship-AI.cpp
 	//void AIJourney(SystemBodyPath &dest);
 	void AIDock(SpaceStation *target);		// Note: defined in Ship-AI.cpp
 	void AIFlyTo(Body *target);				// Note: defined in Ship-AI.cpp
