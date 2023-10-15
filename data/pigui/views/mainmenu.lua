@@ -18,6 +18,31 @@ local qlc = Lang.GetResource("quitconfirmation-core")
 
 local ui = require 'pigui'
 
+---  TESTS
+local FileSystem = require 'FileSystem'
+
+local function FileSystemTests()
+
+--	io.stderr:write( "blah" )
+
+    -- local files, dirs = FileSystem.ReadDirectory("user://.")
+
+	-- for _, f in pairs( files ) do
+	-- 	logWarning( "File: " .. f.name )
+	-- end
+	-- for _, f in pairs( dirs ) do
+	-- 	logWarning( "Dir: " .. f.name )
+	-- end
+
+	-- FileSystem.MakeDirectory( "user://blah" )
+
+-- 	local f = FileSystem.Open( "user://test.txt", "w" )
+-- --	f = io.open( "user://test.txt", "w" )
+-- 	f:write( "hello2" )
+-- 	f:close()
+end
+---
+
 local hyperspace = Equipment.hyperspace
 
 local colors = ui.theme.colors
@@ -125,6 +150,9 @@ end
 local overlayWindowFlags = ui.WindowFlags {"NoTitleBar", "NoResize", "NoFocusOnAppearing", "NoBringToFrontOnFocus", "AlwaysAutoResize"}
 local mainMenuFlags = ui.WindowFlags{"NoTitleBar", "NoResize", "NoFocusOnAppearing", "NoBringToFrontOnFocus"}
 local function showMainMenu()
+
+	FileSystemTests()	
+
 	if not hasMusicList then
 		hasMusicList = true
 		MusicPlayer.rebuildSongList()
