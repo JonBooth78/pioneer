@@ -1450,6 +1450,24 @@ static int l_ship_ai_fly_to(lua_State *l)
 	return 0;
 }
 
+static int l_ship_ai_formation(lua_State* l)
+{
+	Ship* s = LuaObject<Ship>::CheckFromLua(1);
+	if (s->GetFlightState() == Ship::HYPERSPACE)
+		return luaL_error(l, "Ship:AIFormation() cannot be called on a ship in hyperspace");
+	Body* target = LuaObject<Body>::CheckFromLua(2);
+
+	if (!target->IsType(ObjectType::DYNAMICBODY)) {
+		return luaL_error(l, "Formations must be formed with dyanmic bodies");
+	}
+
+
+	vector3d offset = LuaPull<vector3d>(l, 3);
+
+	s->AIFormation(static_cast<DynamicBody*>(target), offset);
+	return 0;
+}
+
 /*
  * Method: AIDockWith
  *
@@ -1569,6 +1587,19 @@ static int l_ship_ai_enter_high_orbit(lua_State *l)
 	if (!target->IsType(ObjectType::PLANET) && !target->IsType(ObjectType::STAR))
 		luaL_argerror(l, 2, "expected a Planet or a Star");
 	s->AIOrbit(target, 3.5);
+	return 0;
+}
+
+static int l_ship_ai_enter_orbit(lua_State* l)
+{
+	Ship* s = LuaObject<Ship>::CheckFromLua(1);
+	if (s->GetFlightState() == Ship::HYPERSPACE)
+		return luaL_error(l, "Ship:AIEnterOrbit() cannot be called on a ship in hyperspace");
+	Body* target = LuaObject<Body>::CheckFromLua(2);
+	if (!target->IsType(ObjectType::PLANET) && !target->IsType(ObjectType::STAR))
+		luaL_argerror(l, 2, "expected a Planet or a Star");
+	double rel_alt = luaL_checknumber(l, 3);
+	s->AIOrbit(target, rel_alt);
 	return 0;
 }
 
@@ -1693,6 +1724,8 @@ void LuaObject<Ship>::RegisterClass()
 		{ "AIEnterLowOrbit", l_ship_ai_enter_low_orbit },
 		{ "AIEnterMediumOrbit", l_ship_ai_enter_medium_orbit },
 		{ "AIEnterHighOrbit", l_ship_ai_enter_high_orbit },
+		{ "AIEnterOrbit", l_ship_ai_enter_orbit },
+		{ "AIFormation", l_ship_ai_formation },
 		{ "CancelAI", l_ship_cancel_ai },
 
 		{ "InitiateHyperjumpTo", l_ship_initiate_hyperjump_to },

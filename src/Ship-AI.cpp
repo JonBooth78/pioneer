@@ -101,6 +101,14 @@ void Ship::AIFlyTo(Body *target)
 		m_curAICmd = new AICmdFlyTo(this, target);
 }
 
+void Ship::AIFormation(DynamicBody* target, const vector3d& offset)
+{
+	AIClearInstructions();
+
+	m_curAICmd = new AICmdFormation(this, target, offset);
+
+}
+
 void Ship::AIDock(SpaceStation *target)
 {
 	AIClearInstructions();

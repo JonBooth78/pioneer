@@ -191,7 +191,8 @@ public:
 	void AIKill(Ship *target);	   // Note: defined in Ship-AI.cpp
 	//void AIJourney(SystemBodyPath &dest);
 	void AIDock(SpaceStation *target);		// Note: defined in Ship-AI.cpp
-	void AIFlyTo(Body *target);				// Note: defined in Ship-AI.cpp
+	void AIFlyTo(Body *target);			// Note: defined in Ship-AI.cpp	
+	void AIFormation(DynamicBody* target, const vector3d& offset);  // Note: defined in Ship-AI.cpp
 	void AIOrbit(Body *target, double alt); // Note: defined in Ship-AI.cpp
 	void AIHoldPosition();					// Note: defined in Ship-AI.cpp
 

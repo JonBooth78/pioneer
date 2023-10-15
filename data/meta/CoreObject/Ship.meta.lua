@@ -115,3 +115,18 @@ function Ship:GetShieldsPercent() end
 -- Sets the thruster fuel tank of the ship to the given percentage of its maximum.
 ---@param percent number
 function Ship:SetFuelPercent(percent) end
+
+
+--- Set the ship AI to hunt down, attack and try and kill the target
+---@param target Ship
+function Ship:AIKill( target ) end
+
+--- Set the ship AI to fly to and enter orbit around the specified body
+---@param body Body         The body to orbit around
+---@param rel_alt Number    The relative altitude to orbit at (compared to the radius of body)
+function Ship:AIEnterOrbit( body, rel_alt ) end
+
+--- Make the ship stay in formation with the other ship
+---@param dynamic_body Body The thing to stay in formation with
+---@param offset Vector3    The location of the formation to say in
+function Ship:AIFormation( dynamic_body, offset ) end
