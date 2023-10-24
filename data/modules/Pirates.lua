@@ -10,6 +10,7 @@ local ShipDef = require 'ShipDef'
 local Ship = require 'Ship'
 local utils = require 'utils'
 local ProximityTest = require 'modules.Common.ProximityTest'
+local ShipOutfitter = require 'modules.Common.ShipOutfitter'
 
 local AIManager = require 'modules.Common.AI.AIManager'
 
@@ -94,17 +95,16 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 
 	logPirate( "Spawning  " .. cluster_size .. " pirates near " .. local_body:GetLabel() .. "\n" )
 
-	local shipdefs = utils.build_array(utils.filter(function (k,def) return def.tag == 'SHIP'
-		and def.hyperdriveClass > 0 and def.roles.pirate end, pairs(ShipDef)))
-	if #shipdefs == 0 then return end
+	-- local shipdefs = utils.build_array(utils.filter(function (k,def) return def.tag == 'SHIP'
+	-- 	and def.hyperdriveClass > 0 and def.roles.pirate end, pairs(ShipDef)))
+	-- if #shipdefs == 0 then return end
 
 	---@type Ship
 	local first_pirate = nil;
 
 	for p = 1, cluster_size, 1 do
-		local shipdef = shipdefs[Engine.rand:Integer(1,#shipdefs)]
-		local default_drive = Equipment.hyperspace['hyperdrive_'..tostring(shipdef.hyperdriveClass)]
-		assert(default_drive)  -- never be nil.
+--		local shipdef = shipdefs[Engine.rand:Integer(1,#shipdefs)]
+		local shipdef = ShipOutfitter.PickShipDef( "SHIP", "pirate" )
 
 --		local ship = Space.SpawnShip(shipdef.id, 8, 12)
 		local label = MakePirateLabel()
@@ -156,20 +156,7 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 
 		ship:SetLabel(label)
 
-		-- select a laser. this is naive - it simply chooses at random from
-		-- the set of lasers that will fit, but never more than one above the
-		-- player's current weapon.
-		-- XXX this should use external factors (eg lawlessness) and not be
-		-- dependent on the player in any way
-		local max_laser_size = shipdef.capacity - default_drive.capabilities.mass
-		local laserdefs = utils.build_array(utils.filter(
-			function (k,l) return l:IsValidSlot('laser_front') and l.capabilities.mass <= max_laser_size and l.l10n_key:find("PULSECANNON") end,
-			pairs(Equipment.laser)
-		))
-		local laserdef = laserdefs[Engine.rand:Integer(1,#laserdefs)]
-
-		ship:AddEquip(default_drive)
-		ship:AddEquip(laserdef)		
+		ShipOutfitter.EquipNewShip( shipdef, ship, "pirate" )
 
 		if first_pirate then
 			logPirate( "  Pirate " .. label .. " spawned and following " .. first_pirate:GetLabel() )
