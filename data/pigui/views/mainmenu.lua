@@ -19,10 +19,24 @@ local qlc = Lang.GetResource("quitconfirmation-core")
 local ui = require 'pigui'
 
 ---  TESTS
-local FileSystem = require 'FileSystem'
+--local FileSystem = require 'FileSystem'
 
-local function FileSystemTests()
+local ShipOutfitter = require 'modules.Common.ShipOutfitter'
 
+local ran_tests = false
+
+local function Tests()
+
+	if ran_tests then
+		return
+	end
+	ran_tests = true
+	ShipOutfitter.CalculateValueCurve( "pirate" )
+
+	ShipOutfitter.SampleShipValues( "pirate", 1000 )
+
+--	local d = ShipOutfitter.PickShipDef( "SHIP", "pirate" )
+	
 --	io.stderr:write( "blah" )
 
     -- local files, dirs = FileSystem.ReadDirectory("user://.")
@@ -151,7 +165,7 @@ local overlayWindowFlags = ui.WindowFlags {"NoTitleBar", "NoResize", "NoFocusOnA
 local mainMenuFlags = ui.WindowFlags{"NoTitleBar", "NoResize", "NoFocusOnAppearing", "NoBringToFrontOnFocus"}
 local function showMainMenu()
 
-	FileSystemTests()	
+	Tests()	
 
 	if not hasMusicList then
 		hasMusicList = true
