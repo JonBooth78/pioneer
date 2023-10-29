@@ -14,6 +14,9 @@
 #include "perlin.h"
 #include "ship/Propulsion.h"
 
+#include "core/Log.h"
+
+
 static const double VICINITY_MIN = 15000.0;
 static const double VICINITY_MUL = 4.0;
 
@@ -932,6 +935,9 @@ AICmdFlyTo::AICmdFlyTo(DynamicBody *dBody, Body *target) :
 	else
 		m_dist = VICINITY_MUL * MaxEffectRad(target, m_prop);
 
+	Log::Warning("{} AICmdFlyTo dist {}", m_dBody->GetLabel(), m_dist);
+
+
 	if (target->IsType(ObjectType::SPACESTATION) && static_cast<SpaceStation *>(target)->IsGroundStation()) {
 		m_posoff = target->GetPosition() + VICINITY_MIN * target->GetOrient().VectorY();
 		//		m_posoff += 500.0 * target->GetOrient().VectorX();
@@ -1687,6 +1693,10 @@ AICmdFormation::AICmdFormation(DynamicBody *dBody, DynamicBody *target, const ve
 	m_target(target),
 	m_posoff(posoff)
 {
+
+	m_interceptRadiusSq = m_posoff.Length() + VICINITY_MIN;
+	m_interceptRadiusSq *= m_interceptRadiusSq;
+
 	m_prop = dBody->GetComponent<Propulsion>();
 	assert(m_prop != nullptr);
 }
@@ -1700,6 +1710,9 @@ AICmdFormation::AICmdFormation(const Json &jsonObj) :
 	} catch (Json::type_error &) {
 		throw SavedGameCorruptException();
 	}
+
+	m_interceptRadiusSq = m_posoff.Length() + VICINITY_MIN;
+	m_interceptRadiusSq *= m_interceptRadiusSq;
 }
 
 void AICmdFormation::SaveToJson(Json &jsonObj)
@@ -1742,7 +1755,10 @@ bool AICmdFormation::TimeStepUpdate()
 
 	// if too far away, do an intercept first
 	// TODO: adjust distance cap by timestep so we don't bounce?
-	if (m_target->GetPositionRelTo(m_dBody).Length() > 30000.0) {
+	if (m_target->GetPositionRelTo(m_dBody).LengthSqr() > m_interceptRadiusSq ) {
+
+		Log::Warning("{} Formation intercept started {}", m_dBody->GetLabel(), Pi::game->GetFrameNumber() );
+
 		m_child.reset(new AICmdFlyTo(m_dBody, m_target));
 		ProcessChild();
 		return false;

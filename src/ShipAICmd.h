@@ -240,6 +240,8 @@ private:
 	DynamicBody *m_target; // target frame for waypoint
 	vector3d m_posoff;	   // offset in target frame
 
+	double m_interceptRadiusSq; // offset distance from target to start and intercept at
+
 	int m_targetIndex; // used during deserialisation
 };
 
