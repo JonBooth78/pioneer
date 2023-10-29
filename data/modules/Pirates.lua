@@ -95,12 +95,11 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 
 	logPirate( "Spawning  " .. cluster_size .. " pirates near " .. local_body:GetLabel() .. "\n" )
 
-	-- local shipdefs = utils.build_array(utils.filter(function (k,def) return def.tag == 'SHIP'
-	-- 	and def.hyperdriveClass > 0 and def.roles.pirate end, pairs(ShipDef)))
-	-- if #shipdefs == 0 then return end
-
 	---@type Ship
 	local first_pirate = nil;
+
+	--- type MocShip[]
+	local cluster = {}
 
 	for p = 1, cluster_size, 1 do
 --		local shipdef = shipdefs[Engine.rand:Integer(1,#shipdefs)]
@@ -109,11 +108,25 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 --		local ship = Space.SpawnShip(shipdef.id, 8, 12)
 		local label = MakePirateLabel()
 
+		local ship = ShipOutfitter.MocShip.New( label, shipdef )
+
+		ShipOutfitter.EquipNewShip( shipdef, ship, "pirate" )
+
+		table.insert( cluster, ship)
+	end
+
+	-- this sorting should hopefully ensure the wing can remain cohesive.
+	table.sort( cluster, AIManager.wingmen.WingComparison )
+	
+	first_pirate = nil
+	for _, blueprint in pairs( cluster ) do
+		local label = blueprint:GetLabel()
+
 		local ship = nil
 		if first_pirate then
-			ship = Space.SpawnShipNear( shipdef.id, first_pirate, 0.5, 3 )
+			ship = Space.SpawnShipNear( blueprint.shipdef.id, first_pirate, 0.5, 3 )
 		elseif local_body == player then
-			ship = Space.SpawnShipNear( shipdef.id, local_body, 10, 50 )
+			ship = Space.SpawnShipNear( blueprint.shipdef.id, local_body, 10, 50 )
 		elseif local_body:isa( "SpaceStation" ) then
 
 			if local_body.isGroundStation then
@@ -130,7 +143,7 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 				local min_alt = planet_radius + 80*1000 -- planet_radius * 1.2
 				local max_alt = planet_radius + 200*1000 -- planet_radius * 3.5
 
-				ship = Space.SpawnShipOrbit( shipdef.id, local_body, min_alt, max_alt )
+				ship = Space.SpawnShipOrbit( blueprint.shipdef.id, local_body, min_alt, max_alt )
 
 	--			ship = Space.SpawnShipOrbit( shipdef.id, local_body, planet_radius * 1.2, planet_radius * 3.5 )
 	--            ship = Space.SpawnShipOrbit( shipdef.id, local_body, planet_radius_km + 80, planet_radius_km + 200 )
@@ -140,7 +153,7 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 				-- only problem is they don't know to return to near the space station
 				-- just to in orbit at the same altitude(ish) as the space station
 				-- TODO: fix?
-				ship = Space.SpawnShipNear( shipdef.id, local_body, 80, 150 )
+				ship = Space.SpawnShipNear( blueprint.shipdef.id, local_body, 80, 150 )
 				local_body = local_body.path:GetSystemBody().parent.body				
 			end
 		else
@@ -151,15 +164,15 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 --			local max_alt = planet_radius + 1000*1000 -- planet_radius * 3.5
 			local min_alt = planet_radius * 1.2
 			local max_alt = planet_radius * 3.5
-			ship = Space.SpawnShipOrbit( shipdef.id, local_body, min_alt, max_alt )
+			ship = Space.SpawnShipOrbit( blueprint.shipdef.id, local_body, min_alt, max_alt )
 		end
 
 		ship:SetLabel(label)
 
-		ShipOutfitter.EquipNewShip( shipdef, ship, "pirate" )
+		blueprint:EquipShip(ship)
 
 		if first_pirate then
-			logPirate( "  Pirate " .. label .. " spawned and following " .. first_pirate:GetLabel() )
+			logPirate( "  Pirate " .. label .. " spawned and following " .. first_pirate:GetLabel() .. " " .. ship.totalMass )
 			---@type Vector3
 			local offset = ship:GetPositionRelTo( first_pirate )
 			AIManager.wingmen:RegisterWingman( first_pirate, ship, offset )
@@ -170,7 +183,7 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 				ship:AIKill(Game.player)
 			else
 				first_pirate = ship
-				logPirate( "  Pirate " .. label .. " spawned and lurking\n" )
+				logPirate( "  Pirate " .. label .. " spawned and lurking " .. ship.totalMass )
 
 				AIManager.ambush:RegisterShip( ship, local_body, function( ship )
 					return ship:IsPlayer()

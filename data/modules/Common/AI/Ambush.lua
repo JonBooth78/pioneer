@@ -70,8 +70,8 @@ function AmbushShipHandle:StartAttack( ship )
 	self.hunting_context = nil
 
 	-- keep any wingmen in formation, until we get a bit closer
-	-- so they all attack at once (unless some of the wingmen are slower which still needs some thought).
-	self.wingman_attack_context = ProximityTest:RegisterTest( self.ship, 1000*15, 5, "Ship", true)
+	-- so they all attack at once
+	self.wingman_attack_context = ProximityTest:RegisterTest( self.ship, 1000*80, 5, "Ship", true)
 	self.wingman_attack_context:SetBodyEnter( function (context, ship )
 		if ship == self.target then
 			logAmbush( self.ship:GetLabel() .. " is now informing his wingment to attack " .. ship:GetLabel() )

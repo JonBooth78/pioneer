@@ -7,14 +7,14 @@ local wingman_manager = nil
 local Ship = require 'Ship'
 local utils = require 'utils'
 local Event = require 'Event'
+local ShipDefs = require 'ShipDef'
 
 local ui = require 'pigui' -- for debug formatting of distances..
-
 
 --- Do we make it easy for the player to kill wingmen.
 --- Handy debug feature.
 ---@type boolean
-local EASY_PLAYER_KILLS = true
+local EASY_PLAYER_KILLS = false
 
 local function logWingmen( message )
 	logWarning( message )
@@ -211,6 +211,7 @@ function WingmanManager:Constructor( ai_manager )
 		---@param hit_ship Ship
 		---@param aggressor Ship
 		function( hit_ship, aggressor ) 
+			if nil == aggressor then return end --TODO: how did this happen?
 			if EASY_PLAYER_KILLS and aggressor:IsPlayer() then
 				-- CHEAT for testing purposes only
 				if hit_ship:GetHullPercent() > 0.1 then
@@ -225,7 +226,7 @@ function WingmanManager:Constructor( ai_manager )
 				if h.target ~= aggressor then
 					h.target = aggressor
 					h.ship:AIKill( aggressor )
-					logWingmen( "Pirate wingman " .. h.ship.GetLabel() .. " attacking due to being hit" )
+					logWingmen( "Pirate wingman " .. h.ship:GetLabel() .. " attacking due to being hit" )
 				end
 			else
 				leader = self.leaders[hit_ship]
@@ -271,7 +272,7 @@ function WingmanManager:NotifyAttackStarted( aggressor, target )
 	end
 end
 
---- func desc
+--- Register a wingman and ships
 ---@param leader Ship
 ---@param wingman Ship
 ---@param formation_offset Vector3
@@ -284,9 +285,31 @@ function WingmanManager:RegisterWingman( leader, wingman, formation_offset )
 
 	---@type WingmanHandle
 	local follower = WingmanHandle.New( leader_h, wingman, formation_offset )
-	table.insert( leader_h.followers, follower )
+	table.insert( leader_h.followers, 1, follower )
 
 	self.followers[wingman] = follower
 end
+
+--- Order the ships given in the array in the order in which they need to be
+--- registered such that the leader is first, then the next leader onwards
+--- so that they will fly in nice formation.
+---
+--- example use (given an array of ships to order)
+--- table.sort( ships, WingmanManager.WingComparison )
+---
+---@param a Ship first ship to compare
+---@param b Ship second ship to compare
+---@return boolean indicating ordering
+function WingmanManager.WingComparison( a, b )
+
+	local def_a = ShipDefs[a.shipId]
+	local def_b = ShipDefs[b.shipId]
+
+	local accel_a = def_a.linearThrust.FORWARD / a.totalMass
+	local accel_b = def_b.linearThrust.FORWARD / b.totalMass
+
+	return accel_a < accel_b
+end
+
 
 return WingmanManager

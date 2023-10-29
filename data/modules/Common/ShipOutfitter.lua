@@ -71,7 +71,8 @@ function QuadraticBezierInterpolation:GetForT( t )
 end
 
 local function map_for_difficulty( d, t )
-      return (1-t)*(1-t)*(1-d) + t*t*d
+    local one_minus_t = (1-t)
+    return one_minus_t*one_minus_t*(1-d) + t*t*d
 end
 
 ---@class MocShip Is a moc of the ship interface that allow us
@@ -84,11 +85,13 @@ local MocShip = utils.class( "ShipOutfitter.MocShip")
 ---@param label string Ship label
 ---@param shipdef ShipDef the ship definition
 function MocShip:Constructor( label, shipdef )
---    self.shipdef = shipdef
+    self.shipdef = shipdef
     self.shipId = shipdef.id
     self.label = label
     --- @type table<string, EquipType.EquipType[]>
     self.slots = {}
+    -- assume a full tank of fuel
+    self.totalMass = shipdef.hullMass + shipdef.fuelTankMass
 end
 
 ---@param slot string The slot to get the equipment array for
@@ -106,12 +109,31 @@ end
 function MocShip:AddEquip( equip, count, slot )
 
     if not count then count = 1 end
-    if not slot then slot = equip.slot end
+    if not slot then slot = equip.slots[1] end
 
-    if self.slots[slot] then
-        table.insert(self.slots[slot], equip)
-    else
-        self.slots[slot] = { equip }
+    -- TODO: track available mass?
+
+    local added = 0
+    while count > 0 do
+        if self.slots[slot] then
+            table.insert(self.slots[slot], equip)
+        else
+            self.slots[slot] = { equip }
+        end
+        self.totalMass = self.totalMass + equip.capabilities.mass
+        count = count - 1
+        added = added + 1
+    end
+    return added
+end
+
+function MocShip:EquipShip(ship)
+    for slot, equip_arr in pairs( self.slots ) do
+        for _, equip in pairs( equip_arr ) do
+            if 1 ~= ship:AddEquip( equip, 1, slot ) then
+                logWarning( "Unable to add equip to " .. ship:GetLabel() .. " - " .. slot .. " - " .. equip:GetName() )
+            end
+        end
     end
 end
 
@@ -761,24 +783,28 @@ function ShipOutfitter.EquipNewShip( shipdef, ship, role, getChance )
     end
 
     ---@type number
-    local mass_remaining = shipdef.capacity;
+    local mass_remaining = shipdef.capacity-shipdef.fuelTankMass; -- assume full tank of fuel
+
 
     --- start with the hyperdrive
     if not scheme.hyperdrive then scheme.hyperdrive = shipdef.hyperdriveClass end
+--    logWarning( "Scheme hyperdrive " .. scheme.hyperdrive )
     if scheme.hyperdrive ~= 0 then
 
         ---@type EquipType.HyperdriveType
-        local drive;
+        local drive
         if scheme.hyperdrive > 10 then
             drive = Equipment.hyperspace['hyperdrive_mil'..tostring(shipdef.hyperdriveClass-10)]
         else
-            drive = Equipment.hyperspace['hyperdrive'..tostring(shipdef.hyperdriveClass)]            
+            drive = Equipment.hyperspace['hyperdrive_'..tostring(shipdef.hyperdriveClass)]            
         end        
 
         if drive then
             logWarning( "Added " .. drive:GetName() )
             mass_remaining = mass_remaining - drive.capabilities.mass
             ship:AddEquip(drive)
+        else
+            logWarning( "Failed to find suitable hyperdrive???" )
         end
     end
 
@@ -868,7 +894,7 @@ function ShipOutfitter.SampleShipValues( role, count )
     end
 end
 
----@param role string the role to calucalat the curve for
+---@param role string the role to calucalate the curve for
 function ShipOutfitter.CalculateValueCurve( role )
     local sample_positions = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9 }
     ---@type { pos: number, probability: number, value: number }[]
@@ -905,5 +931,8 @@ function ShipOutfitter.CalculateValueCurve( role )
 
     return result
 end
+
+---@type MocShip
+ShipOutfitter.MocShip = MocShip
 
 return ShipOutfitter
