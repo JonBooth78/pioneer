@@ -125,6 +125,9 @@ public:
 
 	GameLog *log;
 
+	// for debug purposes only
+	unsigned int GetFrameNumber() const { return m_frameNumber; }
+
 private:
 	class Views {
 	public:
@@ -182,6 +185,8 @@ private:
 	bool m_forceTimeAccel;
 	static const float s_timeAccelRates[];
 	static const float s_timeInvAccelRates[];
+
+	unsigned int m_frameNumber = 0;
 };
 
 #endif

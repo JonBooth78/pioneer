@@ -306,6 +306,9 @@ void Game::ToJson(Json &jsonObj)
 void Game::TimeStep(float step)
 {
 	PROFILE_SCOPED()
+
+	m_frameNumber++;
+
 	m_time += step; // otherwise planets lag time accel changes by a frame
 	if (m_state == State::HYPERSPACE && Pi::game->GetTime() >= m_hyperspaceEndTime)
 		m_time = m_hyperspaceEndTime;
