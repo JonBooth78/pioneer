@@ -50,7 +50,7 @@ Game::Game(const SystemPath &path, const double startDateTime, const char *shipT
 {
 	PROFILE_SCOPED()
 
-	int difficulty = Pi::config->Int("Difficulty", 50);
+	int difficulty = Pi::config->Int("Difficulty", 25);
 	m_difficulty = difficulty / 100.0;
 
 	// Now that we have a Galaxy, check the starting location
@@ -183,7 +183,7 @@ Game::Game(const Json &jsonObj) :
 			m_difficulty = jsonObj["difficulty"];
 		} else
 		{
-			int difficulty = Pi::config->Int("Difficulty", 50);
+			int difficulty = Pi::config->Int("Difficulty", 25);
 			m_difficulty = difficulty / 100.0;
 		}
 

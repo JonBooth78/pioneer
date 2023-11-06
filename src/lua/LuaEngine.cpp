@@ -1045,7 +1045,7 @@ static int l_engine_set_difficulty(lua_State* l)
 	{
 		Pi::game->SetDifficulty(difficulty/100.0);
 	}
-	int old_difficulty = Pi::config->Int("Difficulty", 50);
+	int old_difficulty = Pi::config->Int("Difficulty", 25);
 	if (old_difficulty != difficulty)
 	{
 		Pi::config->SetInt("Difficulty", difficulty);
@@ -1066,7 +1066,7 @@ static int l_engine_get_difficulty(lua_State* l)
 	}
 	else
 	{
-		difficulty = Pi::config->Int("Difficulty", 50);
+		difficulty = Pi::config->Int("Difficulty", 25);
 	}
 	LuaPush(l, difficulty);
 	return 1;
