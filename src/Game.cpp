@@ -36,6 +36,7 @@
 
 static const int s_saveVersion = 89;
 
+
 Game::Game(const SystemPath &path, const double startDateTime, const char *shipType) :
 	m_galaxy(GalaxyGenerator::Create()),
 	m_time(startDateTime),
@@ -49,9 +50,6 @@ Game::Game(const SystemPath &path, const double startDateTime, const char *shipT
 	m_forceTimeAccel(false)
 {
 	PROFILE_SCOPED()
-
-	int difficulty = Pi::config->Int("Difficulty", 25);
-	m_difficulty = difficulty / 100.0;
 
 	// Now that we have a Galaxy, check the starting location
 	if (!path.IsBodyPath())
@@ -176,17 +174,6 @@ Game::Game(const Json &jsonObj) :
 		m_hyperspaceDuration = jsonObj["hyperspace_duration"];
 		m_hyperspaceEndTime = jsonObj["hyperspace_end_time"];
 
-//		Our version is too old for this (at least on windows)...
-// 		if (jsonObj.contains("difficulty"))
-		if (jsonObj.cend() != jsonObj.find("difficulty"))
-		{
-			m_difficulty = jsonObj["difficulty"];
-		} else
-		{
-			int difficulty = Pi::config->Int("Difficulty", 25);
-			m_difficulty = difficulty / 100.0;
-		}
-
 		// space, all the bodies and things
 		m_space.reset(new Space(this, m_galaxy, jsonObj, m_time));
 
@@ -243,8 +230,6 @@ void Game::ToJson(Json &jsonObj)
 	jsonObj["hyperspace_progress"] = m_hyperspaceProgress;
 	jsonObj["hyperspace_duration"] = m_hyperspaceDuration;
 	jsonObj["hyperspace_end_time"] = m_hyperspaceEndTime;
-
-	jsonObj["difficulty"] = m_difficulty;
 
 	// Delete camera frame from frame structure:
 	bool have_cam_frame = m_gameViews->m_worldView->GetCameraContext()->GetTempFrame().valid();
@@ -780,14 +765,6 @@ ObjectViewerView *Game::GetObjectViewerView() const
 }
 #endif
 
-void Game::SetDifficulty(double difficulty)
-{
-	difficulty = std::max(difficulty, 0.0);
-	difficulty = std::min(difficulty, 1.0);
-	m_difficulty = difficulty;
-}
-
-
 Game::Views::Views() :
 	m_sectorView(nullptr),
 	m_systemView(nullptr),
@@ -861,7 +838,8 @@ Game::Views::~Views()
 // XXX this should be in some kind of central UI management class that
 // creates a set of UI views held by the game. right now though the views
 // are rather fundamentally tied to their global points and assume they
-// can all talk to each other. given the difficulty of disentangling all
+// can all talk to each other. given the
+// ulty of disentangling all
 // that and the impending move to Rocket, its better right now to just
 // manage creation and destruction here to get the timing and order right
 void Game::CreateViews()
@@ -998,4 +976,28 @@ void Game::SaveGame(const std::string &filename, Game *game)
 	}
 
 	Pi::GetApp()->RequestProfileFrame("SaveGame");
+}
+
+double Game::GetDifficulty(const char* category) const
+{
+	const auto d = m_difficulty.find(category);
+	if (d != m_difficulty.end())
+	{
+		return d->second;
+	}
+	Warning("Attenmpting to fetch unkown difficulty {}", category);
+	return 0.0;
+}
+
+void Game::SetDifficulty(const char* category, double value)
+{
+	const auto d = m_difficulty.find(category);
+	if (d != m_difficulty.end())
+	{
+		d->second = value;
+	}
+	else
+	{
+		m_difficulty[category] = value;
+	}
 }

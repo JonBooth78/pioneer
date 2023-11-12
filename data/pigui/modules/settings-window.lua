@@ -37,7 +37,8 @@ local needBackgroundStarRefresh = false
 local starDensity = Engine.GetAmountStars() * 100
 local starFieldStarSizeFactor = Engine.GetStarFieldStarSizeFactor() * 100
 
-local difficulty = Engine.GetDifficulty()
+local difficulty = {}
+local original_difficulty = {}
 
 local function combo(label, selected, items, tooltip)
 	local color = colors.buttonBlue
@@ -643,7 +644,11 @@ local function showGameplayOptions()
 		Engine.SetAutosaveEnabled(enableAutoSave)
 	end
 
-	c,difficulty = slider(lui.DIFFICULTY, difficulty, 0, 100)
+	for _, e in pairs( Game.difficulty_elements ) do
+		local name = e.descriptor.name
+		c,difficulty[name] = slider(e.descriptor.desc , difficulty[name], 0, 100,e.descriptor.tooltip)
+	end
+
 end
 
 local optionsTabs = {
@@ -732,7 +737,12 @@ end
 
 function ui.optionsWindow:open()
 	ModalWindow.open(self)
-	difficulty = Engine.GetDifficulty()
+
+	for _, e in pairs( Game.difficulty_elements ) do
+		difficulty[e.descriptor.name] = e:GetPercent()
+		original_difficulty[e.descriptor.name] = e:GetPercent()
+	end
+
 	if Game.player then
 		Input.EnableBindings(false)
 		Event.Queue("onPauseMenuOpen")
@@ -740,7 +750,20 @@ function ui.optionsWindow:open()
 end
 
 function ui.optionsWindow:persist()
-	Engine.SetDifficulty( difficulty )
+
+	local transaction = Engine.StartConfigTransaction()
+	for _, e in pairs( Game.difficulty_elements ) do
+		--- only set ones the user has changed this time through,
+		--- otherwise loading a game and then quitting it can
+		--- cause the defaulst to be overwritten.
+		--- Defaults should only change when a user sets them (either in game)
+		--- or from the start/main menu
+		if original_difficulty[e.descriptor.name] ~= difficulty[e.descriptor.name] then
+			e:SetPercent(difficulty[e.descriptor.name])
+		end
+	end
+	Engine.EndConfigTransaction( transaction )
+
 	if Game.player then
 		Game.SetTimeAcceleration("1x")
 	end

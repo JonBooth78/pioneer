@@ -128,8 +128,8 @@ public:
 	// for debug purposes only
 	unsigned int GetFrameNumber() const { return m_frameNumber; }
 
-	double GetDifficulty() const { return m_difficulty; }
-	void SetDifficulty(double difficulty);
+	double GetDifficulty(const char* category) const;
+	void SetDifficulty(const char* category, double value);
 
 private:
 	class Views {
@@ -189,7 +189,7 @@ private:
 	static const float s_timeAccelRates[];
 	static const float s_timeInvAccelRates[];
 
-	double m_difficulty;
+	std::map<std::string,double, std::less<>> m_difficulty;
 
 	unsigned int m_frameNumber = 0;
 };

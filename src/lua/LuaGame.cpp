@@ -121,7 +121,7 @@ static int l_game_savegame_stats(lua_State *l)
 		}
 
 		return 1;
-	} catch (CouldNotOpenFileException &e) {
+	} catch (CouldNotOpenFileException &) {
 		const std::string message = stringf(Lang::COULD_NOT_OPEN_FILENAME, formatarg("path", filename));
 		lua_pushlstring(l, message.c_str(), message.size());
 		return lua_error(l);
@@ -420,15 +420,6 @@ static int l_game_attr_paused(lua_State *l)
 	return 1;
 }
 
-static int l_game_attr_difficulty(lua_State* l)
-{
-	if (Pi::game)
-		lua_pushnumber(l, Pi::game->GetDifficulty());
-	else
-		lua_pushnumber(l, 0.5);
-	return 1;
-}
-
 /*
  * Function: InHyperspace
  *
@@ -649,6 +640,16 @@ static int l_game_get_parts_from_date_time(lua_State *l)
 	return 6;
 }
 
+static int l_game_set_difficulty(lua_State* l)
+{
+	const auto category = LuaPull<std::string_view>(l, 1);
+	const int percent = luaL_checkinteger(l, 2);
+	Pi::game->SetDifficulty(category.data(), percent);
+
+
+	return 0;
+}
+
 void LuaGame::Register()
 {
 	lua_State *l = Lua::manager->GetLuaState();
@@ -676,6 +677,7 @@ void LuaGame::Register()
 
 		{ "SetWorldCamType", l_game_set_world_cam_type },
 		{ "GetWorldCamType", l_game_get_world_cam_type },
+		{ "SetDifficulty", l_game_set_difficulty },
 
 		{ 0, 0 }
 	};
@@ -687,7 +689,6 @@ void LuaGame::Register()
 		{ "sectorView", l_game_attr_sectorview },
 		{ "time", l_game_attr_time },
 		{ "paused", l_game_attr_paused },
-		{ "difficulty", l_game_attr_difficulty },
 		{ 0, 0 }
 	};
 
