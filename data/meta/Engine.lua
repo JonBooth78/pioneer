@@ -20,13 +20,30 @@ local Engine = {}
 
 -- TODO: add information about all Engine methods
 
---- Get the current difficulty - either that for the current loaded game or the default for any new game if there is no game loaded
---- see also Game.difficulty
----@return integer Difficulty from 0 to 100, easy to hard
-function Engine:GetDifficulty() end
+--- Fetch a value from the ini config
+---@param section? string The config section to fetch from
+---@param key string The key to fetch
+---@param type string One of int, float, string to determing the kind of value to get
+---@param default integer|number|string The default value to return if the section/key is not stored
+---@return integer|number|string The fetched value or default if it is not present
+function Engine.GetConfig( section, key, type, default ) end
 
---- Set the difficulty for the current game (if loaded) and the default for any new games created
----@param percent integer Difficulty from 1 to 100 (clamped)
-function Engine:SetDifficulty( percent ) end
+--- Set a value to the ini config
+---@param section? string The config section to set to`
+---@param key string The key to set
+---@param type string One of int, float, string to determing the kind of value to get
+---@param value integer|number|string The value to set
+function Engine.SetConfig( section, key, type, value ) end
+
+--- Start a transaction on the config, use if you're going to set multiple
+--- values as then the config is only saved once you call EndConfigTransaction
+--- rather than each time you set a new value
+---@return integer An id for the transaction, used to close it.
+function Engine.StartConfigTransaction() end
+
+--- End a transaction; will flush and save any changes to disc made during the
+--- the transaction
+---@param id integer The transaction id returned from StartConfigTransaction
+function Engine.EndConfigTransaction( id ) end
 
 return Engine

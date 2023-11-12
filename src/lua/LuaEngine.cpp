@@ -206,7 +206,7 @@ static int l_engine_get_video_mode_list(lua_State *l)
 	LUA_DEBUG_START(l);
 
 	const std::vector<Graphics::VideoMode> modes = Graphics::GetAvailableVideoModes();
-	const int N = modes.size();
+	const int N = (int)modes.size();
 	lua_createtable(l, N, 0);
 	for (int i = 0; i < N; ++i) {
 		lua_createtable(l, 0, 2);
@@ -1035,41 +1035,138 @@ static int l_browse_user_folders(lua_State *l)
 	return 0;
 }
 
+static std::map<int, bool> engine_transactions;
+static int last_transaction_id = 0;
 
-static int l_engine_set_difficulty(lua_State* l)
+static void save_or_mark_config_dirty()
 {
-	int difficulty = LuaPull<int>(l, 1);
-	difficulty = std::max(0, difficulty);
-	difficulty = std::min(100, difficulty);
-	if (Pi::game)
+	if (engine_transactions.empty())
 	{
-		Pi::game->SetDifficulty(difficulty/100.0);
-	}
-	int old_difficulty = Pi::config->Int("Difficulty", 25);
-	if (old_difficulty != difficulty)
-	{
-		Pi::config->SetInt("Difficulty", difficulty);
 		Pi::config->Save();
+	} else
+	{
+		for ( auto& p : engine_transactions )
+		{
+			p.second = true;
+		}
 	}
+}
 
+
+static int l_engine_start_config_transaction(lua_State* l)
+{
+	++last_transaction_id;
+	engine_transactions[last_transaction_id] = false;
+	lua_pushinteger(l, last_transaction_id);
+	return 1;
+}
+
+static int l_engine_end_config_transaction(lua_State* l)
+{
+	int id = luaL_checkinteger(l, 1);
+	auto v = engine_transactions.find(id);
+	bool write = false;
+	if (v != engine_transactions.end())
+	{
+		write = v->second;
+		engine_transactions.erase(v);
+		write = write && engine_transactions.empty();
+	}
+	if (write)
+		Pi::config->Save();
 	return 0;
 }
 
-// Return the difficulty of the current game, if there is one, else the saved, configured difficulty
-static int l_engine_get_difficulty(lua_State* l)
+static int l_engine_set_config(lua_State* l)
 {
-	int difficulty;
-	if (Pi::game)
+	std::string_view section = "";
+	int arg_offset = 0;
+	if (lua_gettop(l) > 3)
 	{
-		// add 0.5 to ensure rounding
-		difficulty = (int)(Pi::game->GetDifficulty()*100.0 + 0.5);
+		section = LuaPull<std::string_view>(l, 1);
+		arg_offset = 1;
+	}
+
+	const auto key = LuaPull<std::string_view>(l, 1+arg_offset);
+	const auto type = LuaPull<std::string_view>(l, 2+arg_offset);
+
+	if (type.compare("int") == 0)
+	{
+		const int val = luaL_checkinteger(l, 3+arg_offset);
+		const int old_val = Pi::config->Int(std::string(section), std::string(key), val+1);
+		if (old_val != val)
+		{
+			Pi::config->SetInt( std::string(section), std::string(key), val);
+			save_or_mark_config_dirty();
+		}
+	}
+	else if (type.compare("float"))
+	{
+		const float val = (float)luaL_checknumber(l, 3 + arg_offset);
+		const float old_val = Pi::config->Float(std::string(section), std::string(key), val + 10000000.0f);
+		if (old_val != val)
+		{
+			Pi::config->SetFloat(std::string(section), std::string(key), val);
+			save_or_mark_config_dirty();
+		}
+	}
+	else if (type.compare("string"))
+	{
+		const auto val = LuaPull<std::string_view>(l, 3 + arg_offset);
+		char* not_val = "x";
+		if ( val.compare( 0, 1, not_val ) == 0 )
+		{
+			not_val = "y";
+		}
+		const auto old_val = Pi::config->String(std::string(section), std::string(key), not_val);
+		if (val.compare(old_val) != 0 )
+		{
+			Pi::config->SetString(std::string(section), std::string(key), std::string(val));
+			save_or_mark_config_dirty();
+		}
 	}
 	else
 	{
-		difficulty = Pi::config->Int("Difficulty", 25);
+		return luaL_error(l, "Unknown config type \"%s\", must be float, int or string", type.data());
 	}
-	LuaPush(l, difficulty);
-	return 1;
+	return 0;
+}
+
+static int l_engine_get_config(lua_State* l)
+{
+	std::string_view section = "";
+	int arg_offset = 0;
+	if (lua_gettop(l) > 3)
+	{
+		section = LuaPull<std::string_view>(l, 1);
+		arg_offset = 1;
+	}
+
+	const auto key = LuaPull<std::string_view>(l, 1 + arg_offset);
+	const auto type = LuaPull<std::string_view>(l, 2 + arg_offset);
+
+	if (type.compare("int") == 0)
+	{
+		const int default_val = luaL_checkinteger(l, 3 + arg_offset);
+		const int val = Pi::config->Int(std::string(section), std::string(key), default_val);
+		lua_pushinteger(l, val);
+		return 1;
+	}
+	else if (type.compare("float"))
+	{
+		const float default_val = (float)luaL_checknumber(l, 3 + arg_offset);
+		const float val = Pi::config->Float(std::string(section), std::string(key), default_val);
+		lua_pushnumber(l, (double)val);
+		return 1;
+	}
+	else if (type.compare("string"))
+	{
+		const auto default_val = LuaPull<std::string_view>(l, 3 + arg_offset);
+		const auto val = Pi::config->String(std::string(section), std::string(key), std::string(default_val));
+		lua_pushstring(l, val.c_str());
+		return 1;
+	}
+	return luaL_error(l, "Unknown config type \"%s\", must be float, int or string", type.data());
 }
 
 void LuaEngine::Register()
@@ -1163,8 +1260,10 @@ void LuaEngine::Register()
 		{ "GetEnumValue", l_engine_get_enum_value },
 
 		{ "RequestProfileFrame", l_engine_request_profile_frame },
-		{ "SetDifficulty", l_engine_set_difficulty },
-		{ "GetDifficulty", l_engine_get_difficulty },
+		{ "StartConfigTransaction", l_engine_start_config_transaction },
+		{ "EndConfigTransaction", l_engine_end_config_transaction },
+		{ "SetConfig", l_engine_set_config },
+		{ "GetConfig", l_engine_get_config },
 
 		{ 0, 0 }
 	};
