@@ -780,4 +780,31 @@ utils.getFromIntervals = function(array, value)
 	return array[utils.getIndexFromIntervals(array, value)][1]
 end
 
+-- remember mappings from original table to proxy table (weak references)
+local read_only_proxies = setmetatable( {}, { __mode = "k" } )
+
+utils.readOnly = function( t )
+  if type( t ) == "table" then
+    -- check whether we already have a readonly proxy for this table
+    local p = read_only_proxies[ t ]
+    if not p then
+      -- create new proxy table for t
+      p = setmetatable( {}, {
+        __index = function( _, k )
+          -- apply `readonly` recursively to field `t[k]`
+          return utils.readOnly( t[ k ] )
+        end,
+        __newindex = function()
+          error( "table is readonly", 2 )
+        end,
+      } )
+      read_only_proxies[ t ] = p
+    end
+    return p
+  else
+    -- non-tables are returned as is
+    return t
+  end
+end
+
 return utils
