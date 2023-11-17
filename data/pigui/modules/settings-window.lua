@@ -16,6 +16,8 @@ local linput = Lang.GetResource("input-core")
 local ui = require 'pigui'
 local ModalWindow = require 'pigui.libs.modal-win'
 
+local Difficulty = require 'modules.Common.Difficulty'
+
 local colors = ui.theme.colors
 local icons = ui.theme.icons
 local pionillium = ui.fonts.pionillium
@@ -644,7 +646,7 @@ local function showGameplayOptions()
 		Engine.SetAutosaveEnabled(enableAutoSave)
 	end
 
-	for _, e in pairs( Game.difficulty_elements ) do
+	for _, e in pairs( Difficulty.category_elements ) do
 		local name = e.descriptor.name
 		c,difficulty[name] = slider(e.descriptor.desc , difficulty[name], 0, 100,e.descriptor.tooltip)
 	end
@@ -738,7 +740,7 @@ end
 function ui.optionsWindow:open()
 	ModalWindow.open(self)
 
-	for _, e in pairs( Game.difficulty_elements ) do
+	for _, e in pairs( Difficulty.category_elements ) do
 		difficulty[e.descriptor.name] = e:GetPercent()
 		original_difficulty[e.descriptor.name] = e:GetPercent()
 	end
@@ -752,9 +754,9 @@ end
 function ui.optionsWindow:persist()
 
 	local transaction = Engine.StartConfigTransaction()
-	for _, e in pairs( Game.difficulty_elements ) do
+	for _, e in pairs( Difficulty.category_elements ) do
 		--- only set ones the user has changed this time through,
-		--- otherwise loading a game and then quitting it can
+		--- otherwise loading a Difficulty categoryuitting it can
 		--- cause the defaulst to be overwritten.
 		--- Defaults should only change when a user sets them (either in game)
 		--- or from the start/main menu
