@@ -3,6 +3,8 @@
 
 local Equipment = require 'Equipment'
 local EquipType = require 'EquipType'
+local Game = require 'Game'
+local Commodities = require 'Commodities'
 
 --- TODO: make this meta
 ---@class ShipDef
@@ -40,40 +42,7 @@ local Ship = require 'Ship'
 local utils = require 'utils'
 local Engine = require 'Engine'
 
----@class QuadraticBezierInterpolation
----
-local QuadraticBezierInterpolation = utils.class( "QuadraticBezier")
-function QuadraticBezierInterpolation:Constructor( x0, y0, x1, y1, x2, y2)
-    -- first end
-    self.x0 = x0
-    self.y0 = y0
-    -- control point
-    self.x1 = x1
-    self.y1 = y1
-    -- second end
-    self.x2 = x2
-    self.y2 = y2
 
-    self.ix0 = x0-x1
-    self.iy0 = y0-y1
-    self.ix1 = x2-x1
-    self.iy1 = y2-y1
-end
-
-function QuadraticBezierInterpolation:GetForT( t )
-    local tsq = t*t
-    local one_minus_t_sq = (1-t)*(1-t)
-
-    local x = self.x0 + one_minus_t_sq * self.ix0 + tsq * self.ix1
-    local y = self.y0 + one_minus_t_sq * self.iy0 + tsq * self.iy1
-
-    return x, y
-end
-
-local function map_for_difficulty( d, t )
-    local one_minus_t = (1-t)
-    return one_minus_t*one_minus_t*(1-d) + t*t*d
-end
 
 ---@class MocShip Is a moc of the ship interface that allow us
 --- to add and build up data, so we can test the interface but also
@@ -222,6 +191,7 @@ function ShipOutfitter.PickShipDef(tag, role, getChance)
     end
 
     local index = math.ceil(getChance()*#shipdefs*0.99999999999)
+    logWarning( "picked index " .. index .. " of " .. #shipdefs )
     ---@type ShipDef
     local shipdef = shipdefs[index]
 
@@ -932,7 +902,58 @@ function ShipOutfitter.CalculateValueCurve( role )
     return result
 end
 
+function ShipOutfitter.ManifestContainsIllegalGoods( manifest )
+	for name in pairs(manifest) do
+		if not Game.system:IsCommodityLegal(name) then
+            return true
+		end
+	end
+    return false
+end
+
+---@param ship Ship The ships cargo to check
+---@return boolean
+function ShipOutfitter.HasIllegalGoods( ship )
+    local manifest = ship:GetComponent('CargoManager').commodities
+    return self.ManifestContainsIllegalGoods( manifest )
+end
+
+function ShipOutfitter.ManifestsMostValuableCargo( manifest )
+    local value = 0
+    for name, data in pairs( manifest ) do
+        value = math.max( value, data.price )
+    end
+    return 0
+end
+
+function ShipOutfitter.ShipsMostValuableCargo( ship )
+    local manifest = ship:GetComponent('CargoManager').commodities
+    return self.ManifestsMostValuableCargo( manifest );
+end
+
+function ShipOutfitter.CargoValue( ship )
+    local value = 0
+    local manifest = ship:GetComponent('CargoManager').commodities
+    for name, data in pairs( manifest ) do
+        value = value + data.price * data.mass
+    end
+    return value
+end
+
+function ShipOutfitter.IllegalCargoValue( ship )
+    local value = 0
+    local manifest = ship:GetComponent('CargoManager').commodities
+    for name, data in pairs( manifest ) do
+        if not Game.system:IsCommodityLegal(name) then
+            value = value + data.price * data.mass
+        end
+    end
+    return value
+end
+
 ---@type MocShip
 ShipOutfitter.MocShip = MocShip
+---@type number
+ShipOutfitter.most_valuable_commodity = ShipOutfitter.ManifestsMostValuableCargo( Commodities )
 
 return ShipOutfitter

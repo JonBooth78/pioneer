@@ -13,6 +13,7 @@ local Equipment = require 'Equipment'
 local ShipDef = require 'ShipDef'
 local Timer = require 'Timer'
 local Commodities = require 'Commodities'
+local ShipOutfitter = require 'modules.Common.ShipOutfitter'
 
 local l = Lang.GetResource("module-policepatrol")
 local l_ui_core = Lang.GetResource("ui-core")
@@ -29,19 +30,6 @@ local getNumberOfFlavours = function (str)
 	end
 	return num - 1
 end
-
-local hasIllegalGoods = function (cargo)
-	local illegal = false
-
-	for name in pairs(cargo) do
-		if not Game.system:IsCommodityLegal(name) then
-			illegal = true
-			break
-		end
-	end
-	return illegal
-end
-
 
 local patrol = {}
 local showMercy = true
@@ -115,8 +103,7 @@ local onJettison = function (ship, cargo)
 	if not ship:IsPlayer() or Game.system:IsCommodityLegal(cargo.name) then return end
 
 	if #patrol > 0 and showMercy then
-		local manifest = ship:GetComponent('CargoManager').commodities
-		if not hasIllegalGoods(manifest) then
+		if not ShipOutfitter.HasIllegalGoods( ship ) then
 			Comms.ImportantMessage(l.TAKE_A_HIKE, patrol[1].label)
 			piracy = false
 			for i = 1, #patrol do
@@ -129,14 +116,16 @@ end
 local onEnterSystem = function (player)
 	if not player:IsPlayer() then return end
 
-	if not hasIllegalGoods(Commodities) then return end
+	if not ShipOutfitter.ManifestContainsIllegalGoods( Commodities ) then return end
 
 	local system = Game.system
 	if (1 - system.lawlessness) < Engine.rand:Number(4) then return end
 
 	local crimes, fine = player:GetCrimeOutstanding()
 	local ship
+	-- TODO: use the ShipOutfitter to spawn these police ships...
 	local shipdef = ShipDef[system.faction.policeShip]
+
 	local n = 1 + math.floor((1 - system.lawlessness) * (system.population / 3))
 	for i = 1, n do
 		ship = Space.SpawnShipNear(shipdef.id, player, 50, 100)
@@ -158,8 +147,7 @@ local onEnterSystem = function (player)
 			Timer:CallAt(Game.time + Engine.rand:Integer(3, 9), function ()
 				if not Game.system then return end -- Shut up when the player is already in hyperspace
 
-				local manifest = player:GetComponent('CargoManager').commodities
-				if hasIllegalGoods(manifest) then
+				if ShipOutfitter.HasIllegalGoods( player ) then
 					Comms.ImportantMessage(l.ILLEGAL_GOODS_DETECTED, ship.label)
 					attackShip(player)
 					Comms.ImportantMessage(l["POLICE_TAUNT_" .. Engine.rand:Integer(1, getNumberOfFlavours("POLICE_TAUNT"))], ship.label)
