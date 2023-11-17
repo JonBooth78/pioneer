@@ -140,6 +140,8 @@ function AmbushManager:Constructor( ai_manager )
 	self.handle_by_ship = {}
 	---@type table<Ship, AmbushShipHandle>
 	self.handle_by_target = {}
+	---@type table< string, fun( ship : Ship ): boolean >
+	self.target_evaluation_fn_by_id = {}
 end
 
 --- 
@@ -197,8 +199,10 @@ end
 ---
 ---@param ship Ship  							The ship lying in ambush
 ---@param ambush_location Body					The location it will lie in ambush about, normally a planet
----@param attack_fn fun(ship: Ship): boolean	Function to call to evaluate each ship that comes in range to see if we should attack
-function AmbushManager:RegisterShip( ship, ambush_location, attack_fn )
+---@param attack_fn_id fun(ship: Ship): boolean	Function id previously reguistered with RegisterAttackEvaluationFunction
+function AmbushManager:RegisterShip( ship, ambush_location, attack_fn_id )
+
+	local attack_fn = self.target_evaluation_fn_by_id[attack_fn_id]
 	self.handle_by_ship[ship] = AmbushShipHandle.New( ship, ambush_location, attack_fn )
 end
 
@@ -217,6 +221,13 @@ function AmbushManager:TakeOverBehaviour( source, dest )
 	h.ship = dest
 	self.handle_by_ship[source] = nil
 	self.handle_by_ship[dest] = h
+end
+
+--- func desc
+---@param id string		A unique id for this attack function
+---@param func fun( ship : Ship ): boolean A function to use to evaluate if a given ambusher should attack 
+function AmbushManager:RegisterAttackEvaluationFunction( id, func )
+	self.target_evaluation_fn_by_id[id] = func
 end
 
 return AmbushManager

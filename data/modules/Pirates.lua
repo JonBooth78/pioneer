@@ -26,7 +26,7 @@ local LOG_PIRATES = true
 --- enables us to quickly turn the debugging on/off
 ---@param message string
 local function logPirate( message )
-	if LOG_PIRATES then	logWarning( message ) end
+	if LOG_PIRATES then	logWarning( "Pirate: " .. message ) end
 end
 
 ---@type number
@@ -82,6 +82,28 @@ local possiblePirateLocalBodyOptions = function( player )
 	return options
 
 end
+
+---@param ship Ship the ship to evaluate if we want to attack
+---@return boolean if we should attack
+local function pirate_attack_evaluation( ship )
+	--- TODO: pirates could also attack merchants...
+	if not ship:IsPlayer() then return false end
+
+	-- pirates are looking for high value cargo:
+	local cargo_value_ratio = ShipOutfitter.ShipsMostValuableCargo( ship ) / ShipOutfitter.most_valuable_commodity
+	local pirateInterestedModifier = 0.5 + cargo_value_ratio
+	local pirates_interested = Difficulty:yes_no_for_category( "pirateHostility", pirateInterestedModifier )
+
+	if pirates_interested then
+		logPirate( "Decided the pirates are not interested in attacking the player" )
+	else
+		logPirate( "Decided the pirates are intersested in attacking the player" )
+	end
+
+	return pirates_interested
+end
+
+AIManager.ambush:RegisterAttackEvaluationFunction( "pirate_attack_fn", pirate_attack_evaluation )
 
 -- spawn a cluster of pirates
 ---@field local_body		Where to spawn nearby
@@ -179,15 +201,15 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 		else
 			first_pirate = ship
 			if local_body == player then
+				-- too tempting to evaluate if we should attack, they're right there!
+				-- so no need to check pirate_attack_evaluation
 				logPirate( "  Pirate " .. label .. " spawned at player and attacking\n" )
 				ship:AIKill(Game.player)
 			else
 				first_pirate = ship
 				logPirate( "  Pirate " .. label .. " spawned and lurking " .. ship.totalMass )
 
-				AIManager.ambush:RegisterShip( ship, local_body, function( ship )
-					return ship:IsPlayer()
-				end )
+				AIManager.ambush:RegisterShip( ship, local_body, "pirate_attack_fn" )
 			end
 		end
 	end
