@@ -5,6 +5,7 @@ local Equipment = require 'Equipment'
 local EquipType = require 'EquipType'
 local Game = require 'Game'
 local Commodities = require 'Commodities'
+local Difficulty = require 'modules.Common.Difficulty'
 
 --- TODO: make this meta
 ---@class ShipDef
@@ -42,6 +43,7 @@ local Ship = require 'Ship'
 local utils = require 'utils'
 local Engine = require 'Engine'
 
+local Difficulty = require 'modules.Common.Difficulty'
 
 
 ---@class MocShip Is a moc of the ship interface that allow us
@@ -148,7 +150,9 @@ local role_defs = {}
 --- So this function can be modified from a linear chance to something else
 --- to indicate difficulty
 function ShipOutfitter.defaultGetChance()
-    return Engine.rand:Number(1.0)
+
+    return Difficulty:random_normal_for_category( "pirateEquipment" )
+--    return Engine.rand:Number(1.0)
 end
 
 local dumped_all_ship_values = false

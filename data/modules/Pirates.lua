@@ -14,6 +14,9 @@ local ShipOutfitter = require 'modules.Common.ShipOutfitter'
 
 local AIManager = require 'modules.Common.AI.AIManager'
 
+local Difficulty = require 'modules.Common.Difficulty'
+
+
 local ui = require 'pigui' -- for debug formatting of distances..
 
 --- Do we label the pirates in a way that it's easy to see in the logging
@@ -42,17 +45,7 @@ local function MakePirateLabel()
 	end
 end
 
-local possiblePirateLocalBodyOptions = function( player )
--- 	local ports = Space.GetBodies(function (body)
--- --		return body.type == "STARPORT_SURFACE" || body.type == "STARPORT_ORBITAL"
--- 		return body.superType == "STARPORT"
--- 	end)
-
--- 	local planets = Space.GetBodies(function (body)
--- --		return body.type == "PLANET_GAS_GIANT" or body.type == "PLANET_TERRESTRIAL" or body.type == "PLANET_TERRESTRIAL"
--- 		return body.superType == "ROCKY_PLANET" or body.superType == "GAS_GIANT"
--- 	end)
-
+local function possiblePirateLocalBodyOptions( player )
 	local ports = Space.GetBodies( "SpaceStation" )
 	local planets = Space.GetBodies( "Planet" )
 	
@@ -64,24 +57,25 @@ local possiblePirateLocalBodyOptions = function( player )
 
 	local options = {}
 
---	for j = 1, PLAYER_POS_WEIGHT, 1 do
---		table.insert( options, player )
---	end
+	for j = 1, PLAYER_POS_WEIGHT, 1 do
+		table.insert( options, player )
+	end
 
 	for i, port in ipairs(ports) do
 		for j = 1, PORT_WEIGHT, 1 do
 			table.insert( options, port )
 		end
 	end
---	for i, planet in ipairs(planets) do
---		for j = 1, PLANET_WEIGHT, 1 do
---			table.insert( options, planet )
---		end
---	end
+	for i, planet in ipairs(planets) do
+		for j = 1, PLANET_WEIGHT, 1 do
+			table.insert( options, planet )
+		end
+	end
 
 	return options
 
 end
+
 
 ---@param ship Ship the ship to evaluate if we want to attack
 ---@return boolean if we should attack
@@ -110,10 +104,7 @@ AIManager.ambush:RegisterAttackEvaluationFunction( "pirate_attack_fn", pirate_at
 ---@field cluster_size		How many pirates to spawn
 ---@field player			The player
 ---@field interested		Are the pirates going to try and engage the player? (boolean)
-
-local spawnPirateCluster = function( local_body, cluster_size, player, interested )
-
-	cluster_size = 4
+local function spawnPirateCluster( local_body, cluster_size, player )
 
 	logPirate( "Spawning  " .. cluster_size .. " pirates near " .. local_body:GetLabel() .. "\n" )
 
@@ -124,10 +115,8 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 	local cluster = {}
 
 	for p = 1, cluster_size, 1 do
---		local shipdef = shipdefs[Engine.rand:Integer(1,#shipdefs)]
 		local shipdef = ShipOutfitter.PickShipDef( "SHIP", "pirate" )
 
---		local ship = Space.SpawnShip(shipdef.id, 8, 12)
 		local label = MakePirateLabel()
 
 		local ship = ShipOutfitter.MocShip.New( label, shipdef )
@@ -152,14 +141,12 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 		elseif local_body:isa( "SpaceStation" ) then
 
 			if local_body.isGroundStation then
-	--            ship = Space.SpawnShipNear( shipdef.id, local_body, 100, 200 )
 				---@type Body
 				local planet = local_body.path:GetSystemBody().parent.body
 
 				---@type number
 				local planet_radius = planet:GetPhysicalRadius()
 
-	--            local planet_radius_km = planet.radius / 1000
 				logPirate( "  Pirate " .. label .. " near port " .. local_body.label .. " near planet " .. planet.label .. " planet radius " .. planet_radius )
 				local_body = planet
 				local min_alt = planet_radius + 80*1000 -- planet_radius * 1.2
@@ -167,8 +154,6 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 
 				ship = Space.SpawnShipOrbit( blueprint.shipdef.id, local_body, min_alt, max_alt )
 
-	--			ship = Space.SpawnShipOrbit( shipdef.id, local_body, planet_radius * 1.2, planet_radius * 3.5 )
-	--            ship = Space.SpawnShipOrbit( shipdef.id, local_body, planet_radius_km + 80, planet_radius_km + 200 )
 			else
 
 				-- this will put them in orbit, near the space station...
@@ -182,8 +167,6 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 			---@type number
 			local planet_radius = local_body:GetPhysicalRadius()
 
---			local min_alt = planet_radius + 400*1000 -- planet_radius * 1.2
---			local max_alt = planet_radius + 1000*1000 -- planet_radius * 3.5
 			local min_alt = planet_radius * 1.2
 			local max_alt = planet_radius * 3.5
 			ship = Space.SpawnShipOrbit( blueprint.shipdef.id, local_body, min_alt, max_alt )
@@ -215,41 +198,30 @@ local spawnPirateCluster = function( local_body, cluster_size, player, intereste
 	end
 end
 
-local onEnterSystem = function (player)
+local function onEnterSystem( player )
 	if not player:IsPlayer() then return end
 
 	local lawlessness = Game.system.lawlessness
 
-	-- XXX number should be some combination of population, lawlessness,
-	-- proximity to shipping lanes, etc
---	local max_pirates = 6
---	while max_pirates > 0 and Engine.rand:Number(1) < lawlessness do
+	local start_body_options = possiblePirateLocalBodyOptions( player )
 
-	start_body_options = possiblePirateLocalBodyOptions( player )
+	local cluster_size_options = { 1, 1, 1, 1, 2, 2, 2, 3, 3 }
 
-	-- TODO: trim this size based on lawlessness?
-	cluster_size_options = { 1, 1, 1, 1, 2, 2, 3 }
+	local max_pirates = Difficulty:random_normal_for_category( "numPirates", lawlessness, 0.2, 1 ) * 8;
+	
+	logPirate( "Decided to spawn " .. max_pirates .. " with lawlessness " .. lawlessness )
 
-	local max_pirates = 1 --Engine.rand:Number(8)
+	local max_prirate =  math.floor( max_pirates )
+
 	while max_pirates > 0 do
 
 		local cluster_size = cluster_size_options[Engine.rand:Integer(1,#cluster_size_options)]
 		cluster_size = math.min( cluster_size, max_pirates )
 		max_pirates = max_pirates-cluster_size
 
-		-- pirates know how big cargo hold the ship model has
-		local playerCargoCapacity = ShipDef[player.shipId].capacity
-
-		-- Pirate attack probability proportional to how fully loaded cargo hold is.
---		local discount = 2 		-- discount on 2t for small ships.
---		local probabilityPirateIsInterested = math.floor(player.usedCargo - discount) / math.max(1,  playerCargoCapacity - discount)
-		local probabilityPirateIsInterested = 1
-
-		local pirates_interested = (Engine.rand:Number(1) <= probabilityPirateIsInterested)
-
 		local local_body = start_body_options[Engine.rand:Integer(1,#start_body_options)]
 
-		spawnPirateCluster( local_body, cluster_size, player, pirates_interested )
+		spawnPirateCluster( local_body, cluster_size, player )
 
 	end
 end
