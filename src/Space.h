@@ -10,11 +10,13 @@
 #include "RefCounted.h"
 #include "galaxy/StarSystem.h"
 #include "vector3.h"
+#include "ModificationSafeIterationVector.h"
 
 class Body;
 class Frame;
 class Game;
 enum class ObjectType;
+
 
 class Space {
 public:
@@ -67,8 +69,8 @@ public:
 
 
 	Uint32 GetNumBodies() const { return static_cast<Uint32>(m_bodies.size()); }
-	IterationProxy<std::vector<Body *>> GetBodies() { return MakeIterationProxy(m_bodies); }
-	const IterationProxy<const std::vector<Body *>> GetBodies() const { return MakeIterationProxy(m_bodies); }
+	IterationProxy<ModificationSafeIterationVector<Body *>> GetBodies() { return MakeIterationProxy(m_bodies); }
+	const IterationProxy<const ModificationSafeIterationVector<Body *>> GetBodies() const { return MakeIterationProxy(m_bodies); }
 
 	Background::Container *GetBackground() { return m_background.get(); }
 	void RefreshBackground();
@@ -126,7 +128,7 @@ private:
 	Game *m_game;
 
 	// all the bodies we know about
-	std::vector<Body *> m_bodies;
+	ModificationSafeIterationVector<Body *> m_bodies;
 
 	// bodies that were removed/killed this timestep and need pruning at the end
 	enum class BodyAssignation {
