@@ -456,10 +456,7 @@ void Space::RebuildSystemBodyIndex()
 
 void Space::AddBody(Body *b)
 {
-#ifndef NDEBUG
-	assert(!m_processingFinalizationQueue);
-#endif
-	m_assignedBodies.emplace_back(b, BodyAssignation::CREATE);
+	m_bodies.push_back(b);
 }
 
 void Space::RemoveBody(Body *b)
@@ -1071,8 +1068,12 @@ void Space::TimeStep(float step)
 		b->UpdateFrame();
 
 	// AI acts here, then move all bodies and frames
-	for (Body *b : m_bodies)
+//	for (Body *b : m_bodies)
+	for (auto i = m_bodies.begin(), e = m_bodies.end(); i != e; ++i )
+	{
+		auto b = *i;
 		b->StaticUpdate(step);
+	}
 
 	Frame::UpdateOrbitRails(m_game->GetTime(), m_game->GetTimeStep());
 
@@ -1094,26 +1095,22 @@ void Space::UpdateBodies()
 	m_processingFinalizationQueue = true;
 #endif
 
-	// adding, removing or deleting bodies from space
+	// removing or deleting bodies from space
 	for (const auto &b : m_assignedBodies) {
-		if (b.second == BodyAssignation::CREATE) {
-			m_bodies.push_back(b.first);
-		} else {
-			auto remove_iterator = m_bodies.end();
-			for (auto it = m_bodies.begin(); it != m_bodies.end(); ++it) {
-				if (*it != b.first)
-					(*it)->NotifyRemoved(b.first);
-				else
-					remove_iterator = it;
-			}
-			if (remove_iterator != m_bodies.end()) {
-				*remove_iterator = m_bodies.back();
-				m_bodies.pop_back();
-				if (b.second == BodyAssignation::KILL)
-					delete b.first;
-				else
-					b.first->SetFrame(FrameId::Invalid);
-			}
+		auto remove_iterator = m_bodies.end();
+		for (auto it = m_bodies.begin(); it != m_bodies.end(); ++it) {
+			if (*it != b.first)
+				(*it)->NotifyRemoved(b.first);
+			else
+				remove_iterator = it;
+		}
+		if (remove_iterator != m_bodies.end()) {
+			*remove_iterator = m_bodies.back();
+			m_bodies.pop_back();
+			if (b.second == BodyAssignation::KILL)
+				delete b.first;
+			else
+				b.first->SetFrame(FrameId::Invalid);
 		}
 	}
 
