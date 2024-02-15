@@ -30,6 +30,588 @@
 
 //#define DEBUG_CACHE
 
+#define _SPECIAL_VECTOR_BOUNDS_CHECKING
+
+template <class vector>
+class SpecialAdditionVectorConstIterator 
+{
+public:
+	using iterator_category = random_access_iterator_tag;
+	using value_type = typename vector::value_type;
+	using difference_type = typename vector::difference_type;
+	using pointer = typename vector::const_pointer;
+	using reference = const value_type &;
+
+	using mutable_ptr = typename vector::pointer;
+
+	SpecialAdditionVectorConstIterator(mutable_ptr *val, mutable_ptr *currentEnd, vector *vector)
+		: m_val( val )
+		, m_currentEnd( currentEnd )
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		, m_currentStart(&vector->m_base[0])
+#endif
+		, m_vec(vector)
+	{
+		m_vec->addIterator(this);
+	}
+	~SpecialAdditionVectorConstIterator()
+	{
+		m_vec->removeIterator(this);
+	}
+
+	[[nodiscard]] inline reference operator*() const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		return *m_val;
+	}
+
+	[[nodiscard]] inline pointer operator->() const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		return m_val;
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator++() noexcept
+	{
+		++m_val;
+		CheckAndConsolidate();
+		return *this;
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator++(int) noexcept
+	{
+		++m_val;
+		CheckAndConsolidate();
+		return SpecialAdditionVectorConstIterator(m_val - 1, m_currentEnd, m_vec);
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator--() noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		--m_val;
+		return *this;
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator--(int) noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		--m_val;
+		return SpecialAdditionVectorConstIterator(m_val+1, m_currentEnd, m_vec);
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator+=(const difference_type offset) noexcept
+	{
+		m_val += offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+		return *this;
+	}
+
+	//
+
+	[[nodiscard]] inline SpecialAdditionVectorConstIterator operator+(const difference_type offset) const noexcept
+	{
+		m_val += offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+		SpecialAdditionVectorConstIterator rv = SpecialAdditionVectorConstIterator(m_val, m_currentEnd, m_vec);
+		m_val -= offset;
+		return rv;
+	}
+
+	[[nodiscard]] friend inline SpecialAdditionVectorConstIterator operator+(
+		const difference_type offset, SpecialAdditionVectorConstIterator next) noexcept
+	{
+		next += offset;
+		return next;
+	}
+
+	inline SpecialAdditionVectorConstIterator &operator-=(const difference_type offset) noexcept
+	{
+		return *this += -offset;
+	}
+
+	[[nodiscard]] inline SpecialAdditionVectorConstIterator operator-(const difference_type offset) const noexcept
+	{
+		m_val -= offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+		SpecialAdditionVectorConstIterator rv = SpecialAdditionVectorConstIterator(m_val, m_currentEnd, m_vec);
+		m_val += offset;
+		return rv;
+	}
+
+	[[nodiscard]] inline difference_type operator-(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val - other.m_val;
+	}
+
+	[[nodiscard]] inline reference operator[](const difference_type offset) const noexcept
+	{
+		m_val += offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		reference rv = *m_val;
+		m_val -= offset;
+		return rv;
+	}
+
+	[[nodiscard]] inline bool operator==(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val == other.m_val;
+	}
+
+#if _HAS_CXX20
+	[[nodiscard]] constexpr strong_ordering inline operator<=>(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val <=> other.m_val;
+	}
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
+	[[nodiscard]] inline bool operator!=(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val != other.m_val;
+    }
+
+    [[nodiscard]] inline bool operator<(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val < other.m_val;
+    }
+
+    [[nodiscard]] inline bool operator>(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val > other.m_val;
+	}
+
+    [[nodiscard]] inline bool operator<=(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_vec == m_vec);
+#endif
+		return m_val <= other.m_val;
+	}
+
+    [[nodiscard]] inline bool operator>=(const SpecialAdditionVectorConstIterator &other) const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(other.m_val == m_val);
+#endif
+		return m_val >= other.m_val;
+	}
+#endif
+	
+
+protected:
+	inline void CheckAndConsolidate()
+	{
+		if (m_val >= m_currentEnd) {
+			m_vec->Consolidate();
+		}
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		// check the value or assert.
+		assert(m_val <= m_currentEnd);
+#endif
+	}
+	mutable_ptr		m_val;
+	mutable_ptr		m_currentEnd;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+	mutable_ptr		m_currentStart;
+#endif
+	vector *		m_vec;
+};
+
+template <class vector>
+class SpecialAdditionVectorIterator : public SpecialAdditionVectorConstIterator<vector>
+{
+	using base = SpecialAdditionVectorConstIterator<vector>;
+
+	using iterator_category = random_access_iterator_tag;
+	using value_type = typename vector::value_type;
+	using difference_type = typename vector::difference_type;
+	using pointer = typename vector::pointer;
+	using reference = value_type &;
+
+	SpecialAdditionVectorIterator(mutable_ptr *val, mutable_ptr *currentEnd, vector *vector)
+		: SpecialAdditionVectorConstIterator(val, currentEnd, vector)
+	{
+	}
+
+	[[nodiscard]] inline reference operator*() const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		return *m_val;
+	}
+
+	[[nodiscard]] inline pointer operator->() const noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		return m_val;
+	}
+
+	inline SpecialAdditionVectorIterator &operator++() noexcept
+	{
+		base::operator++();
+		return *this;
+	}
+
+	inline SpecialAdditionVectorIterator operator++(int) noexcept
+	{
+		++m_val;
+		CheckAndConsolidate();
+		return SpecialAdditionVectorIterator(m_val - 1, m_currentEnd, m_vec);
+	}
+
+	inline SpecialAdditionVectorIterator &operator--() noexcept
+	{
+		base::operator--();
+		return *this;
+	}
+
+	inline SpecialAdditionVectorIterator operator--(int) noexcept
+	{
+		--m_val;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		return SpecialAdditionVectorIterator(m_val + 1, m_currentEnd, m_vec);
+	}
+
+	inline SpecialAdditionVectorIterator &operator+=(const difference_type offset) noexcept
+	{
+		base::operator+=(offset);
+		return *this;
+	}
+
+	[[nodiscard]] inline SpecialAdditionVectorIterator operator+(const difference_type offset) const noexcept
+	{
+		m_val += offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+		SpecialAdditionVectorIterator rv = SpecialAdditionVectorIterator(m_val, m_currentEnd, m_vec);
+		m_val -= offset;
+		return rv;
+	}
+
+	[[nodiscard]] friend inline SpecialAdditionVectorIterator operator+(
+		const difference_type offset, SpecialAdditionVectorIterator next) noexcept
+	{
+		next += offset;
+		return next;
+	}
+
+	inline SpecialAdditionVectorIterator &operator-=(const difference_type offset) noexcept
+	{
+		base::operator-=(offset);
+		return *this;
+	}
+
+	using base::operator-;
+
+	[[nodiscard]] friend inline SpecialAdditionVectorIterator operator-(const difference_type offset) const noexcept
+	{
+		m_val -= offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+		SpecialAdditionVectorIterator rv = SpecialAdditionVectorIterator(m_val, m_currentEnd, m_vec);
+		m_val += offset;
+		return rv;
+	}
+
+	[[nodiscard]] inline reference operator[](const difference_type offset) const noexcept
+	{
+		m_val += offset;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val > m_currentStart);
+#endif
+		CheckAndConsolidate();
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(m_val < m_currentEnd);
+#endif
+		reference rv = *m_val;
+		m_val -= offset;
+		return rv;
+	}
+};
+
+
+template <typename T, class Allocator = std::allocator<T>>
+class SpecialAdditionVector {
+public:
+	using value_type = T;
+	using allocator_type = Allocator;
+	using pointer =std::vector<T,Allocator>::pointer;
+	using const_pointer = std::vector<T,Allocator>::const_pointer;
+	using reference = _Ty &;
+	using const_reference = const _Ty &;
+	using size_type = std::vector<T,Allocator>::size_type;
+	using difference_type = std::vector<T,Allocator>::difference_type;
+
+
+//	friend SpecialAdditionVectorConstIterator::CheckAndConsolidate();
+	friend class SpecialAdditionVectorConstIterator<T>;
+
+	using const_iterator = SpecialAdditionVectorConstIterator<SpecialAdditionVector<T>>;
+	using iterator = SpecialAdditionVectorIterator<SpecialAdditionVector<T>>;
+//	typename const_iterator;
+//	typename reverse_iterator;
+
+	// element access
+
+	reference at(size_type pos)
+	{
+		const size_type base_size = m_base.size();
+		if (pos < m_base.size()) {
+			return m_base.at(pos);
+		}
+		return m_appending.at(pos-base_size);
+	}
+	const reference at(size_type pos) const
+	{
+		const size_type base_size = m_base.size();
+		if (pos < m_base.size()) {
+			return m_base.at(pos);
+		}
+		return m_appending.at(pos - base_size);
+	}
+	reference operator[](size_type pos)
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(pos >= 0);
+#endif
+		const size_type base_size = m_base.size();
+		if (pos < m_base.size()) {
+			return m_base[pos];
+		}
+		pos -= base_size;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(pos < m_appending.size());
+#endif
+		return m_appending.at[pos];
+	}
+
+	const_reference operator[](size_type pos) const
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(pos >= 0);
+#endif
+		const size_type base_size = m_base.size();
+		if (pos < m_base.size()) {
+			return m_base[pos];
+		}
+		pos -= base_size;
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(pos < m_appending.size());
+#endif
+		return m_appending.at[pos];
+	}
+	reference front()
+	{
+		return m_base.front();
+	}
+	const reference front() const
+	{
+		return m_base.front();
+	}
+	reference back()
+	{
+		if (m_appending.empty()) {
+			return m_base.back();
+		}
+		return m_appending.back();
+	}
+	T *data() noexcept
+	{
+		consolidate();
+		return m_base.data();
+	}
+	const T *data() const
+	{
+		consolidate();
+		return m_base.data();
+	}
+
+	// iterator
+	iterator begin() noexcept
+	{
+		return iterator(&m_data[0], &m_data[m_data.size()], this);
+	}
+	const_iterator begin() const noexcept
+	{
+		return const_iterator(&m_data[0], &m_data[m_data.size()], this);
+	}
+	const_iterator cbegin() const noexcept
+	{
+		return const_iterator(&m_data[0], &m_data[m_data.size()], this);
+	}
+	iterator end() noexcept
+	{
+		T *end = &m_data[m_data.size()];
+		return iterator(end, end, this);
+	}
+	const_iterator end() const noexcept
+	{
+		T *end = &m_data[m_data.size()];
+		return const_iterator(end, end, this);
+	}
+	const_iterator cend() const noexcept
+	{
+		T *end = &m_data[m_data.size()];
+		return const_iterator(end, end, this);
+	}
+	// No reverse iterators are defined (TODO?)
+	
+	// Capacity
+	inline bool empty() const noexcept
+	{
+		return m_base.empty() && m_appending.empty();
+	}
+	inline size_type size() const noexcept
+	{
+		return m_base.size() + m_appending.size();
+	}
+	inline size_type max_size() const noexcept
+	{
+		return m_base.max_size();
+	}
+	inline void reserve( size_type cap )
+	{
+		size_type consolidated_size = this->size();
+		difference_type growth = cap - consolidated_size;
+		if (growth < 0) return;
+
+		prepareForRealloc();
+		m_base.reserve(cap);
+		m_appending.reserve(cap - m_base.size());
+		completeRealloc();
+	}
+	inline void shrink_to_fit()
+	{
+		prepareForRealloc();
+
+		// consolidate before the shrink:
+		if (false == m_appending.empty()) {
+			m_base.reserve(m_base.size() + m_appending.size());
+			m_base.insert(m_base.end(), m_appending.begin(), m_appending.end());
+			m_appending.clear();
+		}
+
+		m_base.shrink_to_fit();
+		m_appending.shrink_to_fit();
+		completeRealloc();
+	}
+
+	// modifiers
+	inline void clear() noexcept
+	{
+#ifdef _SPECIAL_VECTOR_BOUNDS_CHECKING
+		assert(iteratorCount == 0);
+#endif
+		m_base.clear();
+		m_appending.clear();
+	}
+	inline iterator insert(const_iterator pos, const T &val)
+	{
+		// so pos must be in the consolidated range as to get an iterator there, well we have to be (at least right now we do)
+		if ( pos.)
+	}
+ protected:
+	inline size_t iteratorCount()
+	{
+
+	}
+	inline void prepareForRealloc()
+	{
+		m_preReallocStart = &m_base[0];
+		for (auto i : m_iterators) {
+			i->mark();
+		}
+	}
+
+	inline void completeRealloc()
+	{
+		if (m_preReallocStart == &m_base[0]) {
+			// no alloc happened
+			return;
+		}
+		for (auto i : m_iterators) {
+			i->resolve();
+		}
+	}
+
+	void consolidate()
+	{
+		if (m_appending.empty()) {
+			return;
+		}
+
+		prepareForRealloc();
+
+		m_base.reserve(m_base.size() + m_appending.size());
+		m_base.insert(m_base.end(), m_appending.begin(), m_appending.end());
+		m_appending.clear();
+
+		completeRealloc();
+	}
+
+	void addIterator(SpecialAdditionVectorConstIterator *i)
+	{
+		// TODO
+	}
+	void removeIterator(SpecialAdditionVectorConstIterator *i)
+	{
+		// TODO
+	}
+
+	std::vector<T> m_base;
+	std::vector<T> m_appending;
+	std::vector<iterator_base*> m_iterators;
+	T *m_preReallocStart;
+};
+
 static void RelocateStarportIfNecessary(SystemBody *sbody, Planet *planet, vector3d &pos, matrix3x3d &rot, const std::vector<vector3d> &prevPositions)
 {
 	const double radius = planet->GetSystemBody()->GetRadius();
@@ -456,10 +1038,7 @@ void Space::RebuildSystemBodyIndex()
 
 void Space::AddBody(Body *b)
 {
-#ifndef NDEBUG
-	assert(!m_processingFinalizationQueue);
-#endif
-	m_assignedBodies.emplace_back(b, BodyAssignation::CREATE);
+	m_bodies.push_back(b);
 }
 
 void Space::RemoveBody(Body *b)
@@ -1094,26 +1673,22 @@ void Space::UpdateBodies()
 	m_processingFinalizationQueue = true;
 #endif
 
-	// adding, removing or deleting bodies from space
+	// removing or deleting bodies from space
 	for (const auto &b : m_assignedBodies) {
-		if (b.second == BodyAssignation::CREATE) {
-			m_bodies.push_back(b.first);
-		} else {
-			auto remove_iterator = m_bodies.end();
-			for (auto it = m_bodies.begin(); it != m_bodies.end(); ++it) {
-				if (*it != b.first)
-					(*it)->NotifyRemoved(b.first);
-				else
-					remove_iterator = it;
-			}
-			if (remove_iterator != m_bodies.end()) {
-				*remove_iterator = m_bodies.back();
-				m_bodies.pop_back();
-				if (b.second == BodyAssignation::KILL)
-					delete b.first;
-				else
-					b.first->SetFrame(FrameId::Invalid);
-			}
+		auto remove_iterator = m_bodies.end();
+		for (auto it = m_bodies.begin(); it != m_bodies.end(); ++it) {
+			if (*it != b.first)
+				(*it)->NotifyRemoved(b.first);
+			else
+				remove_iterator = it;
+		}
+		if (remove_iterator != m_bodies.end()) {
+			*remove_iterator = m_bodies.back();
+			m_bodies.pop_back();
+			if (b.second == BodyAssignation::KILL)
+				delete b.first;
+			else
+				b.first->SetFrame(FrameId::Invalid);
 		}
 	}
 
